@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedCards - تطبيق الدراسة الذكي</title>
+  <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e1e1e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="fa.css">
+<script src="dexie.min.js"></script>
+<style>
+body{background:#121212;color:#e5e7eb;font-family:system-ui,-apple-system,sans-serif}
+canvas{touch-action:none;-webkit-user-select:none;user-select:none}
+</style>
+</head>
+<body class="dark min-h-screen flex flex-col">
+
+<header class="bg-cardbg border-b border-bordercolor p-4 flex justify-between items-center shadow-md">
+  <div class="flex items-center gap-3">
+    <i class="fa-solid fa-brain text-indigo-500 text-2xl"></i>
+    <h1 class="text-xl font-bold">MedCards <span class="text-xs text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-800">Pro</span></h1>
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="switchView('dashboard')" class="btn btn-p"><i class="fa-solid fa-layer-group ml-1"></i> الرُزم</button>
+    <button onclick="switchView('stats')" class="btn"><i class="fa-solid fa-chart-pie ml-1"></i> الإحصائيات</button>
+    <button onclick="exportData()" class="btn" title="تصدير نسخة احتياطية"><i class="fa-solid fa-download"></i></button>
+    <label class="btn" title="استيراد نسخة احتياطية"><i class="fa-solid fa-upload"></i><input type="file" accept=".json" class="hidden" onchange="importData(this.files[0]);this.value=''"></label>
+  </div>
+</header>
+
+<main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6">
+
+<section id="view-dashboard" class="space-y-5">
+  <div class="flex justify-between items-center">
+    <h2 class="text-lg font-semibold">المواد والمحاضرات الدراسية</h2>
+    <button onclick="addSubject()" class="btn btn-p"><i class="fa-solid fa-plus ml-1"></i> إضافة مادة</button>
+  </div>
+  <div id="backup-note"></div>
+  <div id="subjects-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+</section>
+
+<section id="view-study" class="hidden space-y-4">
+  <div class="flex justify-between items-center box !p-3">
+    <button onclick="switchView('dashboard')" class="text-zinc-400 hover:text-white text-sm"><i class="fa-solid fa-arrow-right ml-1"></i> العودة</button>
+    <div id="study-progress" class="text-sm font-medium text-indigo-400"></div>
+  </div>
+  <div class="box !p-6 min-h-[300px] shadow-xl">
+    <div id="card-front" class="text-lg leading-relaxed"></div>
+    <div id="card-back-box" class="hidden border-t border-bordercolor pt-4 mt-4">
+      <div id="card-back" class="text-lg text-indigo-200 leading-relaxed"></div>
+    </div>
+    <div id="show-area" class="mt-6"><button onclick="showAnswer()" class="btn btn-p w-full !py-3">إظهار الجواب (Space)</button></div>
+    <div id="rating" class="hidden grid-cols-4 gap-2 mt-6 pt-4 border-t border-bordercolor">
+      <button onclick="rateCard(1)" class="btn bg-red-900/50 text-red-200 border border-red-700">إعادة (1)<div id="iv-1" class="text-[10px] opacity-70 mt-0.5"></div></button>
+      <button onclick="rateCard(2)" class="btn bg-amber-900/50 text-amber-200 border border-amber-700">صعب (2)<div id="iv-2" class="text-[10px] opacity-70 mt-0.5"></div></button>
+      <button onclick="rateCard(3)" class="btn bg-emerald-900/50 text-emerald-200 border border-emerald-700">جيد (3)<div id="iv-3" class="text-[10px] opacity-70 mt-0.5"></div></button>
+      <button onclick="rateCard(4)" class="btn bg-blue-900/50 text-blue-200 border border-blue-700">سهل (4)<div id="iv-4" class="text-[10px] opacity-70 mt-0.5"></div></button>
+    </div>
+  </div>
+</section>
+
+<section id="view-editor" class="hidden space-y-5">
+  <div class="flex justify-between items-center box !p-3">
+    <button onclick="switchView('dashboard')" class="text-zinc-400 hover:text-white text-sm"><i class="fa-solid fa-arrow-right ml-1"></i> إغلاق المحرر</button>
+    <h3 id="editor-title" class="font-bold text-indigo-400"></h3>
+  </div>
+  <div class="box space-y-5">
+    <h4 id="form-title" class="font-semibold text-sm text-zinc-300">إضافة بطاقة جديدة</h4>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="space-y-2">
+        <div class="text-xs text-zinc-400">الوجه الأمامي (السؤال)</div>
+        <textarea id="new-front" rows="2" dir="auto" class="inp" placeholder="نص السؤال (اختياري إذا رسمت)..."></textarea>
+        <div id="bar-f"></div>
+        <canvas id="pad-f" width="1200" height="600" class="pad"></canvas>
+      </div>
+      <div class="space-y-2">
+        <div class="text-xs text-zinc-400">الوجه الخلفي (الجواب)</div>
+        <textarea id="new-back" rows="2" dir="auto" class="inp" placeholder="نص الجواب (اختياري إذا رسمت)..."></textarea>
+        <div id="bar-b"></div>
+        <canvas id="pad-b" width="1200" height="600" class="pad"></canvas>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button id="save-btn" onclick="saveCard()" class="btn btn-p flex-1 !py-2.5">حفظ البطاقة وإضافتها</button>
+      <button id="cancel-btn" onclick="resetForm()" class="btn hidden">إلغاء التعديل</button>
+    </div>
+  </div>
+  <div class="space-y-2">
+    <h4 class="font-semibold text-sm text-zinc-300">الكروت الحالية في هذه المحاضرة</h4>
+    <div id="lecture-cards-list" class="space-y-2"></div>
+  </div>
+</section>
+
+<section id="view-stats" class="hidden">
+  <div class="box !p-6 text-center space-y-4">
+    <h3 class="text-lg font-bold">إحصائيات المراجعة والنشاط</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+      <div class="bg-zinc-900 p-4 rounded-xl border border-bordercolor"><div id="st-total" class="text-2xl font-bold text-indigo-400">0</div><div class="text-xs text-zinc-400 mt-1">إجمالي الكروت</div></div>
+      <div class="bg-zinc-900 p-4 rounded-xl border border-bordercolor"><div id="st-due" class="text-2xl font-bold text-amber-400">0</div><div class="text-xs text-zinc-400 mt-1">مستحقة الآن</div></div>
+      <div class="bg-zinc-900 p-4 rounded-xl border border-bordercolor"><div id="st-today" class="text-2xl font-bold text-emerald-400">0</div><div class="text-xs text-zinc-400 mt-1">مراجعات اليوم</div></div>
+      <div class="bg-zinc-900 p-4 rounded-xl border border-bordercolor"><div id="st-all" class="text-2xl font-bold text-blue-400">0</div><div class="text-xs text-zinc-400 mt-1">كل المراجعات</div></div>
+    </div>
+    <button onclick="resetProgress()" class="btn btn-d mt-4"><i class="fa-solid fa-rotate-left ml-1"></i> إعادة التقدم من الصفر</button>
+    <div class="text-xs text-zinc-500">يصفّر الإحصائيات وجدولة المراجعة لكل الكروت. الكروت نفسها ما بتنحذف.</div>
+  </div>
+</section>
+
+</main>
+
+<script>
+const db=new Dexie("MedCardsDatabase");
+db.version(1).stores({subjects:'++id, name',lectures:'++id, subjectId, name',cards:'++id, lectureId, front, back, drawing, interval, repetition, easeFactor, dueDate'});
+db.version(2).stores({subjects:'++id, name',lectures:'++id, subjectId, name',cards:'++id, lectureId, dueDate',reviews:'++id, date'});
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nowISO=()=>new Date().toISOString();
+const today=()=>new Date().toLocaleDateString('sv');
+const isDue=c=>!c.dueDate||c.dueDate<=nowISO();
+let view='dashboard',lecId=null,editId=null,cards=[],ci=0;
+
+/* ---------- لوحة الرسم (القلم يرسم / الإصبع يسكرول الصفحة) ---------- */
+function seg(x,st,i){
+  const p=st.p;x.strokeStyle=st.c;x.lineWidth=st.w*(.4+p[i][2]*1.2);
+  x.beginPath();x.moveTo(p[i-1][0],p[i-1][1]);x.lineTo(p[i][0],p[i][1]);x.stroke();
+}
+function paint(x,s,bg){
+  x.clearRect(0,0,1200,600);
+  if(bg)x.drawImage(bg,0,0,1200,600);
+  x.lineCap=x.lineJoin='round';
+  for(const st of s){
+    const p=st.p;
+    if(p.length==1){x.fillStyle=st.c;x.beginPath();x.arc(p[0][0],p[0][1],st.w*(.4+p[0][2]*1.2)/2,0,7);x.fill();continue}
+    for(let i=1;i<p.length;i++)seg(x,st,i);
+  }
+}
+function Pad(id){
+  const c=$(id),x=c.getContext('2d');
+  const p={s:[],bg:null,bgData:'',color:'#ffffff',size:3,er:false,h:[],r:[]};
+  let cur=null,erasing=false,ty=null;
+  const pos=e=>{const r=c.getBoundingClientRect();return[(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
+  const cap=()=>({s:JSON.stringify(p.s),b:p.bgData});
+  const snap=()=>{p.h.push(cap());if(p.h.length>50)p.h.shift();p.r=[]};
+  const erase=e=>{const[a,b]=pos(e),r=p.size*4+12;p.s=p.s.filter(st=>!st.p.some(q=>Math.hypot(q[0]-a,q[1]-b)<r))};
+  p.draw=()=>paint(x,p.s,p.bg);
+  c.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='touch'){ty=e.clientY;return} // الإصبع: تمرير الصفحة فقط، ما بيرسم
+    e.preventDefault();c.setPointerCapture(e.pointerId);snap();
+    erasing=p.er||(e.buttons&32)>0; // الطرف الخلفي للقلم = ممحاة
+    if(erasing)erase(e);else{const[a,b]=pos(e);cur={c:p.color,w:p.size,p:[[a,b,e.pressure||.5]]};p.s.push(cur)}
+    p.draw();
+  });
+  c.addEventListener('pointermove',e=>{
+    if(e.pointerType==='touch'){ // سكرول بالإصبع (إلا إذا القلم عم يرسم)
+      if(ty!==null&&!cur&&!erasing){window.scrollBy(0,ty-e.clientY);ty=e.clientY}
+      return;
+    }
+    if(!cur&&!erasing)return;
+    if(erasing){erase(e);p.draw()}
+    else for(const ev of(e.getCoalescedEvents?e.getCoalescedEvents():[e])){
+      const[a,b]=pos(ev),n=cur.p.length;cur.p.push([a,b,ev.pressure||.5]);seg(x,cur,n); // رسم الجزء الجديد فقط
+    }
+  });
+  const end=()=>{ty=null;if(cur){cur=null;p.draw()}erasing=false};
+  c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
+  c.addEventListener('contextmenu',e=>e.preventDefault());
+  const restore=o=>{p.s=JSON.parse(o.s);if(o.b!==p.bgData)p.setBg(o.b);else p.draw()};
+  p.undo=()=>{if(!p.h.length)return;p.r.push(cap());restore(p.h.pop())};
+  p.redo=()=>{if(!p.r.length)return;p.h.push(cap());restore(p.r.pop())};
+  p.clear=()=>{snap();p.s=[];p.setBg('')};
+  p.setBg=d=>{p.bgData=d||'';if(!d){p.bg=null;p.draw();return}const i=new Image();i.onload=()=>{p.bg=i;p.draw()};i.src=d};
+  p.load=(s,d)=>{p.s=s||[];p.h=[];p.r=[];p.setBg(d)};
+  p.img=f=>{
+    if(!f)return;const r=new FileReader();
+    r.onload=()=>{const i=new Image();i.onload=()=>{
+      const t=document.createElement('canvas');t.width=1200;t.height=600;const g=t.getContext('2d');
+      g.fillStyle='#18181b';g.fillRect(0,0,1200,600);
+      const k=Math.min(1200/i.width,600/i.height),w=i.width*k,h=i.height*k;
+      g.drawImage(i,(1200-w)/2,(600-h)/2,w,h);snap();p.setBg(t.toDataURL('image/jpeg',.85));
+    };i.src=r.result};r.readAsDataURL(f);
+  };
+  return p;
+}
+const P={f:Pad('pad-f'),b:Pad('pad-b')};
+
+function bar(k){
+  const col=['#ffffff','#ef4444','#3b82f6','#10b981','#facc15'].map(h=>`<button onclick="P.${k}.color='${h}';P.${k}.er=false;syncEr('${k}')" class="dot" style="background:${h}"></button>`).join('');
+  $('bar-'+k).innerHTML=`<div class="flex flex-wrap items-center gap-2 text-xs">${col}
+    <input type="range" min="1" max="14" value="3" oninput="P.${k}.size=+this.value" class="w-20" title="السماكة">
+    <button id="er-${k}" onclick="P.${k}.er=!P.${k}.er;syncEr('${k}')" class="btn !py-1 !px-2" title="ممحاة"><i class="fa-solid fa-eraser"></i></button>
+    <button onclick="P.${k}.undo()" class="btn !py-1 !px-2" title="تراجع"><i class="fa-solid fa-rotate-left"></i></button>
+    <button onclick="P.${k}.redo()" class="btn !py-1 !px-2" title="إعادة"><i class="fa-solid fa-rotate-right"></i></button>
+    <label class="btn !py-1 !px-2" title="استيراد صورة"><i class="fa-solid fa-image"></i><input type="file" accept="image/*" class="hidden" onchange="P.${k}.img(this.files[0]);this.value=''"></label>
+    <button onclick="P.${k}.clear()" class="btn btn-d !py-1 !px-2" title="مسح الكل"><i class="fa-solid fa-trash"></i></button></div>`;
+}
+function syncEr(k){$('er-'+k).classList.toggle('btn-p',P[k].er)}
+bar('f');bar('b');
+
+/* ---------- التنقل ---------- */
+function switchView(v){
+  ['dashboard','study','editor','stats'].forEach(n=>$('view-'+n).classList.add('hidden'));
+  $('view-'+v).classList.remove('hidden');view=v;
+  if(v==='dashboard')loadDashboard();
+  if(v==='stats')loadStats();
+}
+
+/* ---------- المواد والمحاضرات ---------- */
+async function backupNote(){
+  const n=await db.cards.count(),box=$('backup-note');let last=0;
+  try{last=+localStorage.getItem('mc_backup')||0}catch(e){}
+  const days=Math.floor((Date.now()-last)/864e5);
+  box.innerHTML=n&&days>=7?`<div class="box !p-3 text-xs text-amber-300 border-amber-700">${last?`آخر نسخة احتياطية قبل ${days} يوم.`:'ما عملت نسخة احتياطية بعد.'} اضغط زر التحميل <i class="fa-solid fa-download"></i> فوق لحفظ نسخة من كروتك ورسوماتك.</div>`:'';
+}
+async function loadDashboard(){
+  backupNote();
+  const subs=await db.subjects.toArray(),box=$('subjects-container');
+  if(!subs.length){box.innerHTML='<div class="md:col-span-2 text-center text-zinc-500 py-10">لا توجد مواد بعد. اضغط "إضافة مادة" للبدء.</div>';return}
+  let html='';
+  for(const s of subs){
+    const lecs=await db.lectures.where('subjectId').equals(s.id).toArray();let lh='';
+    for(const l of lecs){
+      const cs=await db.cards.where('lectureId').equals(l.id).toArray(),due=cs.filter(isDue).length;
+      lh+=`<div class="flex justify-between items-center bg-zinc-900 p-3 rounded-xl border border-bordercolor">
+        <div><div class="font-medium text-sm">${esc(l.name)}</div><div class="text-xs text-zinc-500 mt-0.5">${cs.length} كروت · <span class="text-amber-400">${due} مستحقة</span></div></div>
+        <div class="flex gap-1">
+          <button onclick="openEditor(${l.id})" class="btn !py-1 !px-2" title="محتوى"><i class="fa-solid fa-pen"></i></button>
+          <button onclick="renLec(${l.id})" class="btn !py-1 !px-2" title="إعادة تسمية"><i class="fa-solid fa-tag"></i></button>
+          <button onclick="delLec(${l.id})" class="btn btn-d !py-1 !px-2" title="حذف"><i class="fa-solid fa-trash"></i></button>
+          <button onclick="startStudy(${l.id})" class="btn btn-p !py-1">دراسة</button>
+        </div></div>`;
+    }
+    html+=`<div class="box space-y-3 shadow">
+      <div class="flex justify-between items-center border-b border-bordercolor pb-2">
+        <h3 class="font-bold text-indigo-400"><i class="fa-solid fa-book ml-2"></i>${esc(s.name)}</h3>
+        <div class="flex gap-1">
+          <button onclick="addLec(${s.id})" class="btn !py-1 !px-2" title="إضافة محاضرة"><i class="fa-solid fa-plus"></i></button>
+          <button onclick="renSub(${s.id})" class="btn !py-1 !px-2" title="إعادة تسمية"><i class="fa-solid fa-tag"></i></button>
+          <button onclick="delSub(${s.id})" class="btn btn-d !py-1 !px-2" title="حذف"><i class="fa-solid fa-trash"></i></button>
+        </div></div>
+      <div class="space-y-2">${lh||'<div class="text-xs text-zinc-500">لا توجد محاضرات</div>'}</div></div>`;
+  }
+  box.innerHTML=html;
+}
+async function addSubject(){
+  const n=(prompt('اسم المادة (مثلاً: Pharmacology)')||'').trim();if(!n)return;
+  const ex=await db.subjects.where('name').equals(n).first(),id=ex?ex.id:await db.subjects.add({name:n});
+  const l=(prompt('اسم المحاضرة الأولى (اختياري)')||'').trim();
+  if(l)await db.lectures.add({subjectId:id,name:l});
+  loadDashboard();
+}
+async function addLec(sid){const n=(prompt('اسم المحاضرة')||'').trim();if(!n)return;await db.lectures.add({subjectId:sid,name:n});loadDashboard()}
+async function renSub(id){const s=await db.subjects.get(id),n=(prompt('الاسم الجديد',s.name)||'').trim();if(!n)return;await db.subjects.update(id,{name:n});loadDashboard()}
+async function renLec(id){const l=await db.lectures.get(id),n=(prompt('الاسم الجديد',l.name)||'').trim();if(!n)return;await db.lectures.update(id,{name:n});loadDashboard()}
+async function delLec(id){
+  if(!confirm('حذف المحاضرة وكل كروتها؟'))return;
+  await db.cards.where('lectureId').equals(id).delete();await db.lectures.delete(id);loadDashboard();
+}
+async function delSub(id){
+  if(!confirm('حذف المادة وكل محاضراتها وكروتها؟'))return;
+  for(const l of await db.lectures.where('subjectId').equals(id).toArray())await db.cards.where('lectureId').equals(l.id).delete();
+  await db.lectures.where('subjectId').equals(id).delete();await db.subjects.delete(id);loadDashboard();
+}
+
+/* ---------- المحرر ---------- */
+async function openEditor(id){
+  lecId=id;resetForm();switchView('editor');
+  $('editor-title').innerText=(await db.lectures.get(id)).name;loadLectureCards();
+}
+function resetForm(){
+  editId=null;$('new-front').value=$('new-back').value='';P.f.load([],'');P.b.load([],'');
+  $('form-title').innerText='إضافة بطاقة جديدة';$('save-btn').innerText='حفظ البطاقة وإضافتها';$('cancel-btn').classList.add('hidden');
+}
+async function editCard(id){
+  const c=await db.cards.get(id);editId=id;
+  $('new-front').value=c.front||'';$('new-back').value=c.back||'';
+  P.f.load(c.fd,c.fbg);P.b.load(c.bd,c.bbg);
+  $('form-title').innerText='تعديل البطاقة';$('save-btn').innerText='حفظ التعديلات';$('cancel-btn').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function saveCard(){
+  const front=$('new-front').value.trim(),back=$('new-back').value.trim();
+  if(!front&&!P.f.s.length&&!P.f.bgData)return alert('اكتب أو ارسم الوجه الأمامي على الأقل');
+  const d={lectureId:lecId,front,back,fd:P.f.s,bd:P.b.s,fbg:P.f.bgData,bbg:P.b.bgData};
+  if(editId)await db.cards.update(editId,d);
+  else await db.cards.add({...d,interval:0,repetition:0,easeFactor:2.5,dueDate:nowISO()});
+  resetForm();loadLectureCards();
+}
+async function loadLectureCards(){
+  const cs=await db.cards.where('lectureId').equals(lecId).toArray();
+  $('lecture-cards-list').innerHTML=cs.map(c=>`<div class="bg-zinc-900 border border-bordercolor p-3 rounded-xl flex justify-between items-center text-sm">
+    <div><b>س:</b> ${c.front?esc(c.front):'<span class="text-zinc-500">(رسم)</span>'} ${(c.fd&&c.fd.length)||c.fbg||(c.bd&&c.bd.length)||c.bbg?'<i class="fa-solid fa-pen-nib text-indigo-400 mr-1"></i>':''}</div>
+    <div class="flex gap-1"><button onclick="editCard(${c.id})" class="btn !py-1 !px-2"><i class="fa-solid fa-pen"></i></button>
+    <button onclick="deleteCard(${c.id})" class="btn btn-d !py-1 !px-2"><i class="fa-solid fa-trash"></i></button></div></div>`).join('')||'<div class="text-xs text-zinc-500">لا توجد كروت بعد.</div>';
+}
+async function deleteCard(id){if(!confirm('حذف هذه البطاقة؟'))return;await db.cards.delete(id);if(editId===id)resetForm();loadLectureCards()}
+
+/* ---------- الدراسة ---------- */
+const compose=(s,d)=>new Promise(res=>{
+  if(!(s&&s.length)&&!d)return res('');
+  const t=document.createElement('canvas');t.width=1200;t.height=600;const g=t.getContext('2d');
+  const go=i=>{paint(g,s||[],i);res(t.toDataURL(d?'image/jpeg':'image/png',.85))};
+  if(d){const i=new Image();i.onload=()=>go(i);i.src=d}else go(null);
+});
+async function startStudy(id){
+  const all=await db.cards.where('lectureId').equals(id).toArray();
+  if(!all.length)return alert('هذه المحاضرة لا تحتوي على كروت!');
+  let due=all.filter(isDue);
+  if(!due.length){if(!confirm('لا توجد كروت مستحقة الآن. مراجعة كل الكروت على أي حال؟'))return;due=all}
+  cards=due;ci=0;switchView('study');renderCard();
+}
+const imgTag=u=>u?`<img src="${u}" class="mt-3 w-full rounded-xl border border-bordercolor bg-zinc-900">`:'';
+async function renderCard(){
+  if(ci>=cards.length){alert('أحسنت! أكملت مراجعة هذه الجلسة.');return switchView('dashboard')}
+  const c=cards[ci];$('study-progress').innerText=`البطاقة ${ci+1} من ${cards.length}`;
+  const f=(await compose(c.fd,c.fbg))||c.drawing||'',b=await compose(c.bd,c.bbg);
+  $('card-front').innerHTML=(c.front?`<div dir="auto" style="white-space:pre-wrap">${esc(c.front)}</div>`:'')+imgTag(f);
+  $('card-back').innerHTML=`<div dir="auto" style="white-space:pre-wrap">${esc(c.back||(b?'':'لا يوجد شرح نصي إضافي.'))}</div>`+imgTag(b);
+  $('card-back-box').classList.add('hidden');$('show-area').classList.remove('hidden');
+  $('rating').classList.add('hidden');$('rating').classList.remove('grid');
+}
+function showAnswer(){
+  const c=cards[ci];$('iv-1').innerText='بعد قليل';
+  for(const r of[2,3,4])$('iv-'+r).innerText=fmtIv(schedule(c,r).interval);
+  $('card-back-box').classList.remove('hidden');$('show-area').classList.add('hidden');
+  $('rating').classList.remove('hidden');$('rating').classList.add('grid');
+}
+const fmtIv=d=>d<=1?'يوم':d===2?'يومين':d<11?d+' أيام':d<30?d+' يوم':d<365?Math.round(d/30)+' شهر':(d/365).toFixed(1)+' سنة';
+// جدولة شبيهة بـ Anki/SM-2: صعب أقصر من جيد، وسهل أطول
+function schedule(c,rating){
+  let{repetition,interval,easeFactor}=c;const prev=interval;
+  if(rating===1){repetition=0;interval=1}
+  else{
+    if(repetition===0)interval=rating===4?4:1;
+    else if(repetition===1)interval=rating===2?3:rating===3?6:8;
+    else{const m=rating===2?1.2:rating===3?easeFactor:easeFactor*1.3;interval=Math.max(prev+1,Math.round(prev*m))}
+    repetition++;
+  }
+  easeFactor=Math.max(1.3,easeFactor+({1:-.2,2:-.15,3:0,4:.15}[rating]));
+  return{repetition,interval,easeFactor};
+}
+let busy=false;
+async function rateCard(rating){
+  if(busy||ci>=cards.length)return;busy=true; // قفل: يمنع التقييم المزدوج
+  try{
+    const c=cards[ci],n=schedule(c,rating);
+    const due=new Date();due.setDate(due.getDate()+n.interval);due.setHours(0,0,0,0); // الاستحقاق من بداية اليوم
+    await db.cards.update(c.id,{...n,dueDate:due.toISOString()});
+    await db.reviews.add({cardId:c.id,rating,date:today()});
+    if(rating===1)cards.push({...c,...n}); // "إعادة" ترجع آخر الجلسة
+    ci++;await renderCard();
+  }finally{busy=false}
+}
+document.addEventListener('keydown',e=>{
+  if(view!=='study'||['INPUT','TEXTAREA'].includes(document.activeElement.tagName))return;
+  const hidden=$('card-back-box').classList.contains('hidden');
+  if(e.code==='Space'){e.preventDefault();if(hidden)showAnswer()}
+  else if(!hidden&&'1234'.includes(e.key)&&e.key)rateCard(+e.key);
+});
+
+/* ---------- الإحصائيات وإعادة التقدم ---------- */
+async function loadStats(){
+  $('st-total').innerText=await db.cards.count();
+  $('st-due').innerText=await db.cards.where('dueDate').belowOrEqual(nowISO()).count();
+  $('st-today').innerText=await db.reviews.where('date').equals(today()).count();
+  $('st-all').innerText=await db.reviews.count();
+}
+async function resetProgress(){
+  if(!confirm('سيتم تصفير كل الإحصائيات وجدولة المراجعة لكل الكروت. الكروت نفسها ما رح تنحذف. متأكد؟'))return;
+  await db.reviews.clear();
+  await db.cards.toCollection().modify({interval:0,repetition:0,easeFactor:2.5,dueDate:nowISO()});
+  loadStats();alert('تمت إعادة التقدم من الصفر.');
+}
+
+/* ---------- نسخ احتياطي ---------- */
+async function exportData(){
+  const data={subjects:await db.subjects.toArray(),lectures:await db.lectures.toArray(),cards:await db.cards.toArray(),reviews:await db.reviews.toArray()};
+  const u=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=u;a.download='medcards_backup.json';a.click();try{localStorage.setItem('mc_backup',Date.now())}catch(e){}
+  setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+async function importData(f){
+  if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(!Array.isArray(d.subjects)||!Array.isArray(d.lectures)||!Array.isArray(d.cards))throw 0;
+    if(![d.subjects,d.lectures,d.cards].every(a=>a.every(r=>r&&Number.isInteger(r.id))))throw 0;
+    if(!confirm('الاستيراد بيستبدل كل البيانات الحالية. متأكد؟'))return;
+    await db.transaction('rw',db.subjects,db.lectures,db.cards,db.reviews,async()=>{
+      await Promise.all([db.subjects.clear(),db.lectures.clear(),db.cards.clear(),db.reviews.clear()]);
+      await db.subjects.bulkAdd(d.subjects);await db.lectures.bulkAdd(d.lectures);
+      await db.cards.bulkAdd(d.cards);await db.reviews.bulkAdd(d.reviews||[]);
+    });
+    switchView('dashboard');alert('تم الاستيراد.');
+  }catch(e){alert('الملف غير صالح.')}
+}
+
+window.onload=()=>{loadDashboard();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}};
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
