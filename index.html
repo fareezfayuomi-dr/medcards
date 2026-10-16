@@ -12,7 +12,6 @@
 <link rel="stylesheet" href="fa.css">
 <script src="dexie.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js"></script>
 <style>
 body{background:#121212;color:#e5e7eb;font-family:system-ui,-apple-system,sans-serif}
 canvas{touch-action:none;-webkit-user-select:none;user-select:none}
@@ -115,9 +114,28 @@ canvas{touch-action:none;-webkit-user-select:none;user-select:none}
 
 </main>
 
+<!-- نافذة الحساب والمزامنة المنبثقة -->
+<div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+  <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #fff;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h3 style="margin: 0; font-size: 18px;">إدارة الحساب والمزامنة</h3>
+      <button onclick="toggleAuthModal()" style="background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer;">&times;</button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div id="user-status" style="font-size: 13px; color: #10b981; margin-bottom: 5px; text-align: center;">غير مسجل دخول</div>
+      <input type="email" id="modal-email" placeholder="البريد الإلكتروني" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
+      <input type="password" id="modal-pass" placeholder="كلمة المرور" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
+      <button id="btn-signin" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
+      <button id="btn-signup" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
+      <hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
+      <button id="btn-sync" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
+      <button id="btn-signout" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const db = new Dexie("MedCardsDatabase");
-// دمج الإصدارات بسلاسة لتجنب أي تعارض في قاعدة البيانات المحلية
 db.version(1).stores({
   subjects: '++id, name',
   lectures: '++id, subjectId, name',
@@ -138,6 +156,79 @@ const today = () => new Date().toLocaleDateString('sv');
 const isDue = c => !c.dueDate || c.dueDate <= nowISO();
 let view = 'dashboard', lecId = null, editId = null, cards = [], ci = 0;
 
+// إعداد Supabase مباشرة داخل الكود لتجنب أي أخطاء ملفات خارجية
+const SUPABASE_URL = "https://your-supabase-url.supabase.co"; // استبدل برابط مشروعك الحقيقي
+const SUPABASE_ANON_KEY = "your-anon-key"; // استبدل بمفتاحك الحقيقي
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function checkAuthStatus() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    $('user-status').innerText = `متصل: ${session.user.email}`;
+  } else {
+    $('user-status').innerText = 'غير مسجل دخول';
+  }
+}
+
+async function signInUser(email, pass) {
+  if(!email || !pass) return alert('الرجاء إدخال البريد وكلمة المرور');
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, pass });
+  if (error) alert('خطأ في تسجيل الدخول: ' + error.message);
+  else { alert('تم تسجيل الدخول بنجاح!'); checkAuthStatus(); toggleAuthModal(); }
+}
+
+async function signUpUser(email, pass) {
+  if(!email || !pass) return alert('الرجاء إدخال البريد وكلمة المرور');
+  const { error } = await supabaseClient.auth.signUp({ email, pass });
+  if (error) alert('خطأ في إنشاء الحساب: ' + error.message);
+  else { alert('تم إنشاء الحساب! تحقق من بريدك لتأكيد الحساب.'); checkAuthStatus(); }
+}
+
+async function signOutUser() {
+  await supabaseClient.auth.signOut();
+  $('user-status').innerText = 'غير مسجل دخول';
+  alert('تم تسجيل الخروج.');
+}
+
+async function syncLocalToCloud() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) return alert('يجب تسجيل الدخول أولاً لتتمكن من المزامنة!');
+  
+  try {
+    const localCards = await db.cards.toArray();
+    for (const card of localCards) {
+      const payload = {
+        id: String(card.id),
+        user_id: session.user.id,
+        front: card.front || '',
+        back: card.back || '',
+        deck_id: String(card.lectureId || ''),
+        state: { interval: card.interval, repetition: card.repetition, easeFactor: card.easeFactor, dueDate: card.dueDate },
+        fbg: card.fbg || '',
+        bbg: card.bbg || '',
+        fd: card.fd || [],
+        bd: card.bd || []
+      };
+      await supabaseClient.from('cards').upsert(payload, { onConflict: 'id' });
+    }
+    alert('تمت مزامنة البطاقات مع السحابة بنجاح!');
+  } catch (err) {
+    alert('حدث خطأ أثناء المزامنة: ' + err.message);
+  }
+}
+
+function toggleAuthModal() {
+  const modal = $('auth-modal');
+  modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+  if(modal.style.display === 'flex') checkAuthStatus();
+}
+
+document.getElementById('btn-signin').onclick = () => signInUser($('modal-email').value, $('modal-pass').value);
+document.getElementById('btn-signup').onclick = () => signUpUser($('modal-email').value, $('modal-pass').value);
+document.getElementById('btn-sync').onclick = () => syncLocalToCloud();
+document.getElementById('btn-signout').onclick = () => signOutUser();
+
+// لوحة الرسم والتحكم
 function seg(x, st, i) {
   const p = st.p; x.strokeStyle = st.c; x.lineWidth = st.w * (.4 + p[i][2] * 1.2);
   x.beginPath(); x.moveTo(p[i-1][0], p[i-1][1]); x.lineTo(p[i][0], p[i][1]); x.stroke();
@@ -406,37 +497,8 @@ async function importData(f) {
   } catch (e) { alert('الملف غير صالح.'); }
 }
 
-window.onload = () => { loadDashboard(); try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {} };
+window.onload = () => { loadDashboard(); checkAuthStatus(); try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {} };
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
-</script>
-
-<div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
-  <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #fff;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <h3 style="margin: 0; font-size: 18px;">إدارة الحساب والمزامنة</h3>
-      <button onclick="toggleAuthModal()" style="background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer;">&times;</button>
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      <input type="email" id="modal-email" placeholder="البريد الإلكتروني" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
-      <input type="password" id="modal-pass" placeholder="كلمة المرور" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
-      <button id="btn-signin" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
-      <button id="btn-signup" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
-      <hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
-      <button id="btn-sync" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
-      <button id="btn-signout" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  function toggleAuthModal() {
-    const modal = document.getElementById('auth-modal');
-    modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-  }
-  document.getElementById('btn-signin').onclick = () => signInUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
-  document.getElementById('btn-signup').onclick = () => signUpUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
-  document.getElementById('btn-sync').onclick = () => syncLocalToCloud();
-  document.getElementById('btn-signout').onclick = () => signOutUser();
 </script>
 </body>
 </html>
