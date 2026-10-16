@@ -1,16 +1,17 @@
 {
-  "short_name": "MedCards",
+  "id": "./",
   "name": "MedCards Pro - تطبيق الدراسة الذكي",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/3820/3820187.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ],
-  "start_url": "./index.html",
+  "short_name": "MedCards",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#1e1e1e",
-  "display": "standalone",
-  "orientation": "portrait"
+  "icons": [
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
 }

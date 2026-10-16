@@ -6,21 +6,11 @@
 <title>MedCards - تطبيق الدراسة الذكي</title>
   <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e1e1e">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{cardbg:'#1e1e1e',bordercolor:'#2d2d2d'}}}}</script>
-<script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style type="text/tailwindcss">
-@layer components{
-.btn{@apply px-3 py-1.5 rounded-lg text-sm font-medium transition bg-zinc-800 hover:bg-zinc-700 cursor-pointer}
-.btn-p{@apply bg-indigo-600 hover:bg-indigo-700}
-.btn-d{@apply bg-red-900/50 hover:bg-red-800 text-red-200}
-.inp{@apply w-full bg-zinc-900 border border-bordercolor rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500}
-.box{@apply bg-cardbg border border-bordercolor rounded-2xl p-4}
-.pad{@apply w-full rounded-xl bg-zinc-900 border border-bordercolor cursor-crosshair}
-.dot{@apply w-5 h-5 rounded-full inline-block border border-zinc-600}
-}
-</style>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="fa.css">
+<script src="dexie.min.js"></script>
 <style>
 body{background:#121212;color:#e5e7eb;font-family:system-ui,-apple-system,sans-serif}
 canvas{touch-action:none;-webkit-user-select:none;user-select:none}
@@ -48,6 +38,7 @@ canvas{touch-action:none;-webkit-user-select:none;user-select:none}
     <h2 class="text-lg font-semibold">المواد والمحاضرات الدراسية</h2>
     <button onclick="addSubject()" class="btn btn-p"><i class="fa-solid fa-plus ml-1"></i> إضافة مادة</button>
   </div>
+  <div id="backup-note"></div>
   <div id="subjects-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
 </section>
 
@@ -63,10 +54,10 @@ canvas{touch-action:none;-webkit-user-select:none;user-select:none}
     </div>
     <div id="show-area" class="mt-6"><button onclick="showAnswer()" class="btn btn-p w-full !py-3">إظهار الجواب (Space)</button></div>
     <div id="rating" class="hidden grid-cols-4 gap-2 mt-6 pt-4 border-t border-bordercolor">
-      <button onclick="rateCard(1)" class="btn bg-red-900/50 text-red-200 border border-red-700">إعادة (1)</button>
-      <button onclick="rateCard(2)" class="btn bg-amber-900/50 text-amber-200 border border-amber-700">صعب (2)</button>
-      <button onclick="rateCard(3)" class="btn bg-emerald-900/50 text-emerald-200 border border-emerald-700">جيد (3)</button>
-      <button onclick="rateCard(4)" class="btn bg-blue-900/50 text-blue-200 border border-blue-700">سهل (4)</button>
+      <button onclick="rateCard(1)" class="btn bg-red-900/50 text-red-200 border border-red-700">إعادة (1)<div id="iv-1" class="text-[10px] opacity-70 mt-0.5"></div></button>
+      <button onclick="rateCard(2)" class="btn bg-amber-900/50 text-amber-200 border border-amber-700">صعب (2)<div id="iv-2" class="text-[10px] opacity-70 mt-0.5"></div></button>
+      <button onclick="rateCard(3)" class="btn bg-emerald-900/50 text-emerald-200 border border-emerald-700">جيد (3)<div id="iv-3" class="text-[10px] opacity-70 mt-0.5"></div></button>
+      <button onclick="rateCard(4)" class="btn bg-blue-900/50 text-blue-200 border border-blue-700">سهل (4)<div id="iv-4" class="text-[10px] opacity-70 mt-0.5"></div></button>
     </div>
   </div>
 </section>
@@ -81,13 +72,13 @@ canvas{touch-action:none;-webkit-user-select:none;user-select:none}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <div class="space-y-2">
         <div class="text-xs text-zinc-400">الوجه الأمامي (السؤال)</div>
-        <textarea id="new-front" rows="2" class="inp" placeholder="نص السؤال (اختياري إذا رسمت)..."></textarea>
+        <textarea id="new-front" rows="2" dir="auto" class="inp" placeholder="نص السؤال (اختياري إذا رسمت)..."></textarea>
         <div id="bar-f"></div>
         <canvas id="pad-f" width="1200" height="600" class="pad"></canvas>
       </div>
       <div class="space-y-2">
         <div class="text-xs text-zinc-400">الوجه الخلفي (الجواب)</div>
-        <textarea id="new-back" rows="2" class="inp" placeholder="نص الجواب (اختياري إذا رسمت)..."></textarea>
+        <textarea id="new-back" rows="2" dir="auto" class="inp" placeholder="نص الجواب (اختياري إذا رسمت)..."></textarea>
         <div id="bar-b"></div>
         <canvas id="pad-b" width="1200" height="600" class="pad"></canvas>
       </div>
@@ -131,46 +122,54 @@ const today=()=>new Date().toLocaleDateString('sv');
 const isDue=c=>!c.dueDate||c.dueDate<=nowISO();
 let view='dashboard',lecId=null,editId=null,cards=[],ci=0;
 
-/* ---------- لوحة الرسم (Pointer Events + ضغط القلم) ---------- */
+/* ---------- لوحة الرسم (القلم يرسم / الإصبع يسكرول الصفحة) ---------- */
+function seg(x,st,i){
+  const p=st.p;x.strokeStyle=st.c;x.lineWidth=st.w*(.4+p[i][2]*1.2);
+  x.beginPath();x.moveTo(p[i-1][0],p[i-1][1]);x.lineTo(p[i][0],p[i][1]);x.stroke();
+}
 function paint(x,s,bg){
   x.clearRect(0,0,1200,600);
   if(bg)x.drawImage(bg,0,0,1200,600);
   x.lineCap=x.lineJoin='round';
   for(const st of s){
-    const p=st.p;x.strokeStyle=x.fillStyle=st.c;
-    if(p.length==1){x.beginPath();x.arc(p[0][0],p[0][1],st.w*(.4+p[0][2]*1.2)/2,0,7);x.fill();continue}
-    for(let i=1;i<p.length;i++){
-      x.lineWidth=st.w*(.4+p[i][2]*1.2);
-      x.beginPath();x.moveTo(p[i-1][0],p[i-1][1]);x.lineTo(p[i][0],p[i][1]);x.stroke();
-    }
+    const p=st.p;
+    if(p.length==1){x.fillStyle=st.c;x.beginPath();x.arc(p[0][0],p[0][1],st.w*(.4+p[0][2]*1.2)/2,0,7);x.fill();continue}
+    for(let i=1;i<p.length;i++)seg(x,st,i);
   }
 }
 function Pad(id){
   const c=$(id),x=c.getContext('2d');
   const p={s:[],bg:null,bgData:'',color:'#ffffff',size:3,er:false,h:[],r:[]};
-  let cur=null,erasing=false;
+  let cur=null,erasing=false,ty=null;
   const pos=e=>{const r=c.getBoundingClientRect();return[(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
-  const snap=()=>{p.h.push(JSON.stringify(p.s));p.r=[]};
+  const cap=()=>({s:JSON.stringify(p.s),b:p.bgData});
+  const snap=()=>{p.h.push(cap());if(p.h.length>50)p.h.shift();p.r=[]};
   const erase=e=>{const[a,b]=pos(e),r=p.size*4+12;p.s=p.s.filter(st=>!st.p.some(q=>Math.hypot(q[0]-a,q[1]-b)<r))};
   p.draw=()=>paint(x,p.s,p.bg);
   c.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='touch')return; // رفض الكف: الإصبع ما بيرسم
+    if(e.pointerType==='touch'){ty=e.clientY;return} // الإصبع: تمرير الصفحة فقط، ما بيرسم
     e.preventDefault();c.setPointerCapture(e.pointerId);snap();
     erasing=p.er||(e.buttons&32)>0; // الطرف الخلفي للقلم = ممحاة
     if(erasing)erase(e);else{const[a,b]=pos(e);cur={c:p.color,w:p.size,p:[[a,b,e.pressure||.5]]};p.s.push(cur)}
     p.draw();
   });
   c.addEventListener('pointermove',e=>{
+    if(e.pointerType==='touch'){ // سكرول بالإصبع (إلا إذا القلم عم يرسم)
+      if(ty!==null&&!cur&&!erasing){window.scrollBy(0,ty-e.clientY);ty=e.clientY}
+      return;
+    }
     if(!cur&&!erasing)return;
-    if(erasing)erase(e);
-    else for(const ev of(e.getCoalescedEvents?e.getCoalescedEvents():[e])){const[a,b]=pos(ev);cur.p.push([a,b,ev.pressure||.5])}
-    p.draw();
+    if(erasing){erase(e);p.draw()}
+    else for(const ev of(e.getCoalescedEvents?e.getCoalescedEvents():[e])){
+      const[a,b]=pos(ev),n=cur.p.length;cur.p.push([a,b,ev.pressure||.5]);seg(x,cur,n); // رسم الجزء الجديد فقط
+    }
   });
-  const end=()=>{cur=null;erasing=false};
+  const end=()=>{ty=null;if(cur){cur=null;p.draw()}erasing=false};
   c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
   c.addEventListener('contextmenu',e=>e.preventDefault());
-  p.undo=()=>{if(!p.h.length)return;p.r.push(JSON.stringify(p.s));p.s=JSON.parse(p.h.pop());p.draw()};
-  p.redo=()=>{if(!p.r.length)return;p.h.push(JSON.stringify(p.s));p.s=JSON.parse(p.r.pop());p.draw()};
+  const restore=o=>{p.s=JSON.parse(o.s);if(o.b!==p.bgData)p.setBg(o.b);else p.draw()};
+  p.undo=()=>{if(!p.h.length)return;p.r.push(cap());restore(p.h.pop())};
+  p.redo=()=>{if(!p.r.length)return;p.h.push(cap());restore(p.r.pop())};
   p.clear=()=>{snap();p.s=[];p.setBg('')};
   p.setBg=d=>{p.bgData=d||'';if(!d){p.bg=null;p.draw();return}const i=new Image();i.onload=()=>{p.bg=i;p.draw()};i.src=d};
   p.load=(s,d)=>{p.s=s||[];p.h=[];p.r=[];p.setBg(d)};
@@ -180,7 +179,7 @@ function Pad(id){
       const t=document.createElement('canvas');t.width=1200;t.height=600;const g=t.getContext('2d');
       g.fillStyle='#18181b';g.fillRect(0,0,1200,600);
       const k=Math.min(1200/i.width,600/i.height),w=i.width*k,h=i.height*k;
-      g.drawImage(i,(1200-w)/2,(600-h)/2,w,h);p.setBg(t.toDataURL('image/jpeg',.85));
+      g.drawImage(i,(1200-w)/2,(600-h)/2,w,h);snap();p.setBg(t.toDataURL('image/jpeg',.85));
     };i.src=r.result};r.readAsDataURL(f);
   };
   return p;
@@ -209,7 +208,14 @@ function switchView(v){
 }
 
 /* ---------- المواد والمحاضرات ---------- */
+async function backupNote(){
+  const n=await db.cards.count(),box=$('backup-note');let last=0;
+  try{last=+localStorage.getItem('mc_backup')||0}catch(e){}
+  const days=Math.floor((Date.now()-last)/864e5);
+  box.innerHTML=n&&days>=7?`<div class="box !p-3 text-xs text-amber-300 border-amber-700">${last?`آخر نسخة احتياطية قبل ${days} يوم.`:'ما عملت نسخة احتياطية بعد.'} اضغط زر التحميل <i class="fa-solid fa-download"></i> فوق لحفظ نسخة من كروتك ورسوماتك.</div>`:'';
+}
 async function loadDashboard(){
+  backupNote();
   const subs=await db.subjects.toArray(),box=$('subjects-container');
   if(!subs.length){box.innerHTML='<div class="md:col-span-2 text-center text-zinc-500 py-10">لا توجد مواد بعد. اضغط "إضافة مادة" للبدء.</div>';return}
   let html='';
@@ -310,25 +316,42 @@ async function renderCard(){
   if(ci>=cards.length){alert('أحسنت! أكملت مراجعة هذه الجلسة.');return switchView('dashboard')}
   const c=cards[ci];$('study-progress').innerText=`البطاقة ${ci+1} من ${cards.length}`;
   const f=(await compose(c.fd,c.fbg))||c.drawing||'',b=await compose(c.bd,c.bbg);
-  $('card-front').innerHTML=(c.front?`<div style="white-space:pre-wrap">${esc(c.front)}</div>`:'')+imgTag(f);
-  $('card-back').innerHTML=`<div style="white-space:pre-wrap">${esc(c.back||(b?'':'لا يوجد شرح نصي إضافي.'))}</div>`+imgTag(b);
+  $('card-front').innerHTML=(c.front?`<div dir="auto" style="white-space:pre-wrap">${esc(c.front)}</div>`:'')+imgTag(f);
+  $('card-back').innerHTML=`<div dir="auto" style="white-space:pre-wrap">${esc(c.back||(b?'':'لا يوجد شرح نصي إضافي.'))}</div>`+imgTag(b);
   $('card-back-box').classList.add('hidden');$('show-area').classList.remove('hidden');
   $('rating').classList.add('hidden');$('rating').classList.remove('grid');
 }
 function showAnswer(){
+  const c=cards[ci];$('iv-1').innerText='بعد قليل';
+  for(const r of[2,3,4])$('iv-'+r).innerText=fmtIv(schedule(c,r).interval);
   $('card-back-box').classList.remove('hidden');$('show-area').classList.add('hidden');
   $('rating').classList.remove('hidden');$('rating').classList.add('grid');
 }
+const fmtIv=d=>d<=1?'يوم':d===2?'يومين':d<11?d+' أيام':d<30?d+' يوم':d<365?Math.round(d/30)+' شهر':(d/365).toFixed(1)+' سنة';
+// جدولة شبيهة بـ Anki/SM-2: صعب أقصر من جيد، وسهل أطول
+function schedule(c,rating){
+  let{repetition,interval,easeFactor}=c;const prev=interval;
+  if(rating===1){repetition=0;interval=1}
+  else{
+    if(repetition===0)interval=rating===4?4:1;
+    else if(repetition===1)interval=rating===2?3:rating===3?6:8;
+    else{const m=rating===2?1.2:rating===3?easeFactor:easeFactor*1.3;interval=Math.max(prev+1,Math.round(prev*m))}
+    repetition++;
+  }
+  easeFactor=Math.max(1.3,easeFactor+({1:-.2,2:-.15,3:0,4:.15}[rating]));
+  return{repetition,interval,easeFactor};
+}
+let busy=false;
 async function rateCard(rating){
-  const c=cards[ci];let{repetition,interval,easeFactor}=c;
-  const q={1:1,2:3,3:4,4:5}[rating];
-  if(q>=3){interval=repetition===0?1:repetition===1?6:Math.round(interval*easeFactor);repetition++}
-  else{repetition=0;interval=1}
-  easeFactor=Math.max(1.3,easeFactor+(0.1-(5-q)*(0.08+(5-q)*0.02)));
-  const due=new Date();due.setDate(due.getDate()+interval);
-  await db.cards.update(c.id,{repetition,interval,easeFactor,dueDate:due.toISOString()});
-  await db.reviews.add({cardId:c.id,rating,date:today()});
-  ci++;renderCard();
+  if(busy||ci>=cards.length)return;busy=true; // قفل: يمنع التقييم المزدوج
+  try{
+    const c=cards[ci],n=schedule(c,rating);
+    const due=new Date();due.setDate(due.getDate()+n.interval);due.setHours(0,0,0,0); // الاستحقاق من بداية اليوم
+    await db.cards.update(c.id,{...n,dueDate:due.toISOString()});
+    await db.reviews.add({cardId:c.id,rating,date:today()});
+    if(rating===1)cards.push({...c,...n}); // "إعادة" ترجع آخر الجلسة
+    ci++;await renderCard();
+  }finally{busy=false}
 }
 document.addEventListener('keydown',e=>{
   if(view!=='study'||['INPUT','TEXTAREA'].includes(document.activeElement.tagName))return;
@@ -355,7 +378,7 @@ async function resetProgress(){
 async function exportData(){
   const data={subjects:await db.subjects.toArray(),lectures:await db.lectures.toArray(),cards:await db.cards.toArray(),reviews:await db.reviews.toArray()};
   const u=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
-  const a=document.createElement('a');a.href=u;a.download='medcards_backup.json';a.click();
+  const a=document.createElement('a');a.href=u;a.download='medcards_backup.json';a.click();try{localStorage.setItem('mc_backup',Date.now())}catch(e){}
   setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 async function importData(f){
@@ -363,6 +386,7 @@ async function importData(f){
   try{
     const d=JSON.parse(await f.text());
     if(!Array.isArray(d.subjects)||!Array.isArray(d.lectures)||!Array.isArray(d.cards))throw 0;
+    if(![d.subjects,d.lectures,d.cards].every(a=>a.every(r=>r&&Number.isInteger(r.id))))throw 0;
     if(!confirm('الاستيراد بيستبدل كل البيانات الحالية. متأكد؟'))return;
     await db.transaction('rw',db.subjects,db.lectures,db.cards,db.reviews,async()=>{
       await Promise.all([db.subjects.clear(),db.lectures.clear(),db.cards.clear(),db.reviews.clear()]);
@@ -373,6 +397,6 @@ async function importData(f){
   }catch(e){alert('الملف غير صالح.')}
 }
 
-window.onload=()=>loadDashboard();
+window.onload=()=>{loadDashboard();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}};
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
-}); 
