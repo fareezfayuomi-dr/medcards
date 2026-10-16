@@ -13,9 +13,6 @@
 <script src="dexie.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js"></script>
-<script src="dexie.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js"></script>
 <style>
 body{background:#121212;color:#e5e7eb;font-family:system-ui,-apple-system,sans-serif}
 canvas{touch-action:none;-webkit-user-select:none;user-select:none}
@@ -23,11 +20,11 @@ canvas{touch-action:none;-webkit-user-select:none;user-select:none}
 </head>
 <body class="dark min-h-screen flex flex-col">
 
-<header class="bg-cardbg border-b border-bordercolor p-4 flex justify-between items-center shadow-md"><!-- أزرار ومربع الحساب والمزامنة -->
-<!-- زر فتح قائمة الحساب والمزامنة -->
-<button onclick="toggleAuthModal()" style="background: #2563eb; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px;">
-  <i class="fa-solid fa-user-circle"></i> الحساب والمزامنة
-</button>
+<header class="bg-cardbg border-b border-bordercolor p-4 flex justify-between items-center shadow-md">
+  <!-- زر فتح قائمة الحساب والمزامنة -->
+  <button onclick="toggleAuthModal()" style="background: #2563eb; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+    <i class="fa-solid fa-user-circle"></i> الحساب والمزامنة
+  </button>
 
   <div class="flex items-center gap-3">
     <i class="fa-solid fa-brain text-indigo-500 text-2xl"></i>
@@ -157,21 +154,21 @@ function Pad(id){
   const erase=e=>{const[a,b]=pos(e),r=p.size*4+12;p.s=p.s.filter(st=>!st.p.some(q=>Math.hypot(q[0]-a,q[1]-b)<r))};
   p.draw=()=>paint(x,p.s,p.bg);
   c.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='touch'){ty=e.clientY;return} // الإصبع: تمرير الصفحة فقط، ما بيرسم
+    if(e.pointerType==='touch'){ty=e.clientY;return}
     e.preventDefault();c.setPointerCapture(e.pointerId);snap();
-    erasing=p.er||(e.buttons&32)>0; // الطرف الخلفي للقلم = ممحاة
+    erasing=p.er||(e.buttons&32)>0;
     if(erasing)erase(e);else{const[a,b]=pos(e);cur={c:p.color,w:p.size,p:[[a,b,e.pressure||.5]]};p.s.push(cur)}
     p.draw();
   });
   c.addEventListener('pointermove',e=>{
-    if(e.pointerType==='touch'){ // سكرول بالإصبع (إلا إذا القلم عم يرسم)
+    if(e.pointerType==='touch'){
       if(ty!==null&&!cur&&!erasing){window.scrollBy(0,ty-e.clientY);ty=e.clientY}
       return;
     }
     if(!cur&&!erasing)return;
     if(erasing){erase(e);p.draw()}
     else for(const ev of(e.getCoalescedEvents?e.getCoalescedEvents():[e])){
-      const[a,b]=pos(ev),n=cur.p.length;cur.p.push([a,b,ev.pressure||.5]);seg(x,cur,n); // رسم الجزء الجديد فقط
+      const[a,b]=pos(ev),n=cur.p.length;cur.p.push([a,b,ev.pressure||.5]);seg(x,cur,n);
     }
   });
   const end=()=>{ty=null;if(cur){cur=null;p.draw()}erasing=false};
@@ -211,8 +208,7 @@ bar('f');bar('b');
 
 /* ---------- التنقل ---------- */
 function switchView(v){
-  ['dashboard','study','editor','stats'].forEach(n=>$('view-'+n).classList.add('hidden'));
-  $('view-'+v).classList.remove('hidden');view=v;
+  ['dashboard','study','editor','stats'].forEach(n=>$('view-'+n).classList.add('hidden'));$('view-'+v).classList.remove('hidden');view=v;
   if(v==='dashboard')loadDashboard();
   if(v==='stats')loadStats();
 }
@@ -280,12 +276,11 @@ async function openEditor(id){
   $('editor-title').innerText=(await db.lectures.get(id)).name;loadLectureCards();
 }
 function resetForm(){
-  editId=null;$('new-front').value=$('new-back').value='';P.f.load([],'');P.b.load([],'');
-  $('form-title').innerText='إضافة بطاقة جديدة';$('save-btn').innerText='حفظ البطاقة وإضافتها';$('cancel-btn').classList.add('hidden');
+  editId=null;$('new-front').value=$('new-back').value='';P.f.load([],'');P.b.load([],'');$('form-title').innerText='إضافة بطاقة جديدة';$('save-btn').innerText='حفظ البطاقة وإضافتها';$('cancel-btn').classList.add('hidden');
 }
 async function editCard(id){
   const c=await db.cards.get(id);editId=id;
-  $('new-front').value=c.front||'';$('new-back').value=c.back||'';
+  $('new-front').value=c.front\vert{}\vert{}'';$('new-back').value=c.back||'';
   P.f.load(c.fd,c.fbg);P.b.load(c.bd,c.bbg);
   $('form-title').innerText='تعديل البطاقة';$('save-btn').innerText='حفظ التعديلات';$('cancel-btn').classList.remove('hidden');
   window.scrollTo({top:0,behavior:'smooth'});
@@ -338,7 +333,6 @@ function showAnswer(){
   $('rating').classList.remove('hidden');$('rating').classList.add('grid');
 }
 const fmtIv=d=>d<=1?'يوم':d===2?'يومين':d<11?d+' أيام':d<30?d+' يوم':d<365?Math.round(d/30)+' شهر':(d/365).toFixed(1)+' سنة';
-// جدولة شبيهة بـ Anki/SM-2: صعب أقصر من جيد، وسهل أطول
 function schedule(c,rating){
   let{repetition,interval,easeFactor}=c;const prev=interval;
   if(rating===1){repetition=0;interval=1}
@@ -348,18 +342,18 @@ function schedule(c,rating){
     else{const m=rating===2?1.2:rating===3?easeFactor:easeFactor*1.3;interval=Math.max(prev+1,Math.round(prev*m))}
     repetition++;
   }
-  easeFactor=Math.max(1.3,easeFactor+({1:-.2,2:-.15,3:0,4:.15}[rating]));
+  easeFactor=Math.max(1.3,easeFactor+({1:-.2,2:-.15,3:0,4:[0.15][rating-1]||0}[rating]));
   return{repetition,interval,easeFactor};
 }
 let busy=false;
 async function rateCard(rating){
-  if(busy||ci>=cards.length)return;busy=true; // قفل: يمنع التقييم المزدوج
+  if(busy||ci>=cards.length)return;busy=true;
   try{
     const c=cards[ci],n=schedule(c,rating);
-    const due=new Date();due.setDate(due.getDate()+n.interval);due.setHours(0,0,0,0); // الاستحقاق من بداية اليوم
+    const due=new Date();due.setDate(due.getDate()+n.interval);due.setHours(0,0,0,0);
     await db.cards.update(c.id,{...n,dueDate:due.toISOString()});
     await db.reviews.add({cardId:c.id,rating,date:today()});
-    if(rating===1)cards.push({...c,...n}); // "إعادة" ترجع آخر الجلسة
+    if(rating===1)cards.push({...c,...n});
     ci++;await renderCard();
   }finally{busy=false}
 }
@@ -372,10 +366,8 @@ document.addEventListener('keydown',e=>{
 
 /* ---------- الإحصائيات وإعادة التقدم ---------- */
 async function loadStats(){
-  $('st-total').innerText=await db.cards.count();
-  $('st-due').innerText=await db.cards.where('dueDate').belowOrEqual(nowISO()).count();
-  $('st-today').innerText=await db.reviews.where('date').equals(today()).count();
-  $('st-all').innerText=await db.reviews.count();
+  $('st-total').innerText=await db.cards.count();$('st-due').innerText=await db.cards.where('dueDate').belowOrEqual(nowISO()).count();
+  $('st-today').innerText=await db.reviews.where('date').equals(today()).count();$('st-all').innerText=await db.reviews.count();
 }
 async function resetProgress(){
   if(!confirm('سيتم تصفير كل الإحصائيات وجدولة المراجعة لكل الكروت. الكروت نفسها ما رح تنحذف. متأكد؟'))return;
@@ -409,32 +401,6 @@ async function importData(f){
 
 window.onload=()=>{loadDashboard();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}};
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-</script><!-- نافذة الحساب والمزامنة المنبثقة -->
-<div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
-  <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #fff;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <h3 style="margin: 0; font-size: 18px;">إدارة الحساب والمزامنة</h3>
-      <button onclick="toggleAuthModal()" style="background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer;">&times;</button>
-    </div>
-    
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      <input type="email" id="modal-email" placeholder="البريد الإلكتروني" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
-      <input type="password" id="modal-pass" placeholder="كلمة المرور" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
-      
-     <button id="btn-signin" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
-<button id="btn-signup" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
-
-<hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
-
-<button id="btn-sync" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
-<button id="btn-signout" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
-    </div>
-  </div>
-</div>
-
-<script>
-window.onload=()=>{loadDashboard();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
 
 <!-- نافذة الحساب والمزامنة المنبثقة -->
@@ -466,7 +432,7 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
     modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
   }
 
-  // ربط الأزرار برمجياً لمنع أي مشكلة في الاستجابة
+  // ربط الأزرار برمجياً لضمان الاستجابة التامة
   document.getElementById('btn-signin').onclick = () => {
     signInUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
   };
@@ -480,3 +446,5 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
     signOutUser();
   };
 </script>
+</body>
+</html>
