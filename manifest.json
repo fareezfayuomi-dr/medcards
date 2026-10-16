@@ -1,0 +1,16 @@
+{
+  "short_name": "MedCards",
+  "name": "MedCards Pro - تطبيق الدراسة الذكي",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3820/3820187.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#121212",
+  "theme_color": "#1e1e1e",
+  "display": "standalone",
+  "orientation": "portrait"
+}
