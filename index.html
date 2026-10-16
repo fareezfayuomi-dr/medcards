@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MedCards - تطبيق الدراسة الذكي</title>
-  <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e1e1e">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1e1e">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="app.css">
@@ -21,11 +21,9 @@ canvas{touch-action:none;-webkit-user-select:none;user-select:none}
 <body class="dark min-h-screen flex flex-col">
 
 <header class="bg-cardbg border-b border-bordercolor p-4 flex justify-between items-center shadow-md">
-  <!-- زر فتح قائمة الحساب والمزامنة -->
   <button onclick="toggleAuthModal()" style="background: #2563eb; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px;">
     <i class="fa-solid fa-user-circle"></i> الحساب والمزامنة
   </button>
-
   <div class="flex items-center gap-3">
     <i class="fa-solid fa-brain text-indigo-500 text-2xl"></i>
     <h1 class="text-xl font-bold">MedCards <span class="text-xs text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-800">Pro</span></h1>
@@ -129,7 +127,6 @@ const today=()=>new Date().toLocaleDateString('sv');
 const isDue=c=>!c.dueDate||c.dueDate<=nowISO();
 let view='dashboard',lecId=null,editId=null,cards=[],ci=0;
 
-/* ---------- لوحة الرسم (القلم يرسم / الإصبع يسكرول الصفحة) ---------- */
 function seg(x,st,i){
   const p=st.p;x.strokeStyle=st.c;x.lineWidth=st.w*(.4+p[i][2]*1.2);
   x.beginPath();x.moveTo(p[i-1][0],p[i-1][1]);x.lineTo(p[i][0],p[i][1]);x.stroke();
@@ -206,20 +203,19 @@ function bar(k){
 function syncEr(k){$('er-'+k).classList.toggle('btn-p',P[k].er)}
 bar('f');bar('b');
 
-/* ---------- التنقل ---------- */
 function switchView(v){
   ['dashboard','study','editor','stats'].forEach(n=>$('view-'+n).classList.add('hidden'));$('view-'+v).classList.remove('hidden');view=v;
   if(v==='dashboard')loadDashboard();
   if(v==='stats')loadStats();
 }
 
-/* ---------- المواد والمحاضرات ---------- */
 async function backupNote(){
   const n=await db.cards.count(),box=$('backup-note');let last=0;
   try{last=+localStorage.getItem('mc_backup')||0}catch(e){}
   const days=Math.floor((Date.now()-last)/864e5);
   box.innerHTML=n&&days>=7?`<div class="box !p-3 text-xs text-amber-300 border-amber-700">${last?`آخر نسخة احتياطية قبل ${days} يوم.`:'ما عملت نسخة احتياطية بعد.'} اضغط زر التحميل <i class="fa-solid fa-download"></i> فوق لحفظ نسخة من كروتك ورسوماتك.</div>`:'';
 }
+
 async function loadDashboard(){
   backupNote();
   const subs=await db.subjects.toArray(),box=$('subjects-container');
@@ -250,27 +246,31 @@ async function loadDashboard(){
   }
   box.innerHTML=html;
 }
+
 async function addSubject(){
   const n=(prompt('اسم المادة (مثلاً: Pharmacology)')||'').trim();if(!n)return;
-  const ex=await db.subjects.where('name').equals(n).first(),id=ex?ex.id:await db.subjects.add({name:n});
+  const ex=await db.subjects.where('name').equals(n).first();
+  const id=ex?ex.id:await db.subjects.add({name:n});
   const l=(prompt('اسم المحاضرة الأولى (اختياري)')||'').trim();
   if(l)await db.lectures.add({subjectId:id,name:l});
   loadDashboard();
 }
-async function addLec(sid){const n=(prompt('اسم المحاضرة')||'').trim();if(!n)return;await db.lectures.add({subjectId:sid,name:n});loadDashboard()}
+
+async function addLec(sid){
+  const n=(prompt('اسم المحاضرة')||'').trim();if(!n)return;
+  await db.lectures.add({subjectId:sid,name:n});
+  loadDashboard();
+}
+
 async function renSub(id){const s=await db.subjects.get(id),n=(prompt('الاسم الجديد',s.name)||'').trim();if(!n)return;await db.subjects.update(id,{name:n});loadDashboard()}
 async function renLec(id){const l=await db.lectures.get(id),n=(prompt('الاسم الجديد',l.name)||'').trim();if(!n)return;await db.lectures.update(id,{name:n});loadDashboard()}
-async function delLec(id){
-  if(!confirm('حذف المحاضرة وكل كروتها؟'))return;
-  await db.cards.where('lectureId').equals(id).delete();await db.lectures.delete(id);loadDashboard();
-}
+async function delLec(id){if(!confirm('حذف المحاضرة وكل كروتها؟'))return;await db.cards.where('lectureId').equals(id).delete();await db.lectures.delete(id);loadDashboard()}
 async function delSub(id){
   if(!confirm('حذف المادة وكل محاضراتها وكروتها؟'))return;
   for(const l of await db.lectures.where('subjectId').equals(id).toArray())await db.cards.where('lectureId').equals(l.id).delete();
   await db.lectures.where('subjectId').equals(id).delete();await db.subjects.delete(id);loadDashboard();
 }
 
-/* ---------- المحرر ---------- */
 async function openEditor(id){
   lecId=id;resetForm();switchView('editor');
   $('editor-title').innerText=(await db.lectures.get(id)).name;loadLectureCards();
@@ -302,7 +302,6 @@ async function loadLectureCards(){
 }
 async function deleteCard(id){if(!confirm('حذف هذه البطاقة؟'))return;await db.cards.delete(id);if(editId===id)resetForm();loadLectureCards()}
 
-/* ---------- الدراسة ---------- */
 const compose=(s,d)=>new Promise(res=>{
   if(!(s&&s.length)&&!d)return res('');
   const t=document.createElement('canvas');t.width=1200;t.height=600;const g=t.getContext('2d');
@@ -342,7 +341,7 @@ function schedule(c,rating){
     else{const m=rating===2?1.2:rating===3?easeFactor:easeFactor*1.3;interval=Math.max(prev+1,Math.round(prev*m))}
     repetition++;
   }
-  easeFactor=Math.max(1.3,easeFactor+({1:-.2,2:-.15,3:0,4:[0.15][rating-1]||0}[rating]));
+  easeFactor=Math.max(1.3,easeFactor+({1:-.2,2:-.15,3:0,4:0.15}[rating]));
   return{repetition,interval,easeFactor};
 }
 let busy=false;
@@ -364,7 +363,6 @@ document.addEventListener('keydown',e=>{
   else if(!hidden&&'1234'.includes(e.key)&&e.key)rateCard(+e.key);
 });
 
-/* ---------- الإحصائيات وإعادة التقدم ---------- */
 async function loadStats(){
   $('st-total').innerText=await db.cards.count();$('st-due').innerText=await db.cards.where('dueDate').belowOrEqual(nowISO()).count();
   $('st-today').innerText=await db.reviews.where('date').equals(today()).count();$('st-all').innerText=await db.reviews.count();
@@ -376,75 +374,7 @@ async function resetProgress(){
   loadStats();alert('تمت إعادة التقدم من الصفر.');
 }
 
-/* ---------- نسخ احتياطي ---------- */
 async function exportData(){
   const data={subjects:await db.subjects.toArray(),lectures:await db.lectures.toArray(),cards:await db.cards.toArray(),reviews:await db.reviews.toArray()};
   const u=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
-  const a=document.createElement('a');a.href=u;a.download='medcards_backup.json';a.click();try{localStorage.setItem('mc_backup',Date.now())}catch(e){}
-  setTimeout(()=>URL.revokeObjectURL(u),1000);
-}
-async function importData(f){
-  if(!f)return;
-  try{
-    const d=JSON.parse(await f.text());
-    if(!Array.isArray(d.subjects)||!Array.isArray(d.lectures)||!Array.isArray(d.cards))throw 0;
-    if(![d.subjects,d.lectures,d.cards].every(a=>a.every(r=>r&&Number.isInteger(r.id))))throw 0;
-    if(!confirm('الاستيراد بيستبدل كل البيانات الحالية. متأكد؟'))return;
-    await db.transaction('rw',db.subjects,db.lectures,db.cards,db.reviews,async()=>{
-      await Promise.all([db.subjects.clear(),db.lectures.clear(),db.cards.clear(),db.reviews.clear()]);
-      await db.subjects.bulkAdd(d.subjects);await db.lectures.bulkAdd(d.lectures);
-      await db.cards.bulkAdd(d.cards);await db.reviews.bulkAdd(d.reviews||[]);
-    });
-    switchView('dashboard');alert('تم الاستيراد.');
-  }catch(e){alert('الملف غير صالح.')}
-}
-
-window.onload=()=>{loadDashboard();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-</script>
-
-<!-- نافذة الحساب والمزامنة المنبثقة -->
-<div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
-  <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #fff;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <h3 style="margin: 0; font-size: 18px;">إدارة الحساب والمزامنة</h3>
-      <button onclick="toggleAuthModal()" style="background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer;">&times;</button>
-    </div>
-    
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      <input type="email" id="modal-email" placeholder="البريد الإلكتروني" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
-      <input type="password" id="modal-pass" placeholder="كلمة المرور" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
-      
-      <button id="btn-signin" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
-      <button id="btn-signup" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
-      
-      <hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
-      
-      <button id="btn-sync" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
-      <button id="btn-signout" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  function toggleAuthModal() {
-    const modal = document.getElementById('auth-modal');
-    modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-  }
-
-  // ربط الأزرار برمجياً لضمان الاستجابة التامة
-  document.getElementById('btn-signin').onclick = () => {
-    signInUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
-  };
-  document.getElementById('btn-signup').onclick = () => {
-    signUpUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
-  };
-  document.getElementById('btn-sync').onclick = () => {
-    syncLocalToCloud();
-  };
-  document.getElementById('btn-signout').onclick = () => {
-    signOutUser();
-  };
-</script>
-</body>
-</html>
+  const a=document.createElement('a');a.href=u;a.download='medcards_backup.json';a.click();try{localStorage
