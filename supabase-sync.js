@@ -27,7 +27,6 @@ async function signInUser(email, password) {
     alert("خطأ في تسجيل الدخول: " + error.message);
   } else {
     alert("تم تسجيل الدخول بنجاح!");
-    syncLocalToCloud(); // رفع البيانات فور تسجيل الدخول
   }
   return data;
 }
@@ -37,25 +36,38 @@ async function signOutUser() {
   alert("تم تسجيل الخروج");
 }
 
-// 3. دالة رفع البيانات المحلية إلى السحابة
+// 3. دالة رفع البيانات المحلية إلى السحابة (مع إظهار رسالة عند الانتهاء)
 async function syncLocalToCloud() {
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  if (!user) return;
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
+      alert("الرجاء تسجيل الدخول أولاً قبل إجراء المزامنة!");
+      return;
+    }
 
-  // جلب البطاقات من قاعدة البيانات المحلية Dexie
-  const localCards = await db.cards.toArray();
-  if (localCards.length === 0) return;
+    // جلب البطاقات من قاعدة البيانات المحلية Dexie
+    const localCards = await db.cards.toArray();
+    if (localCards.length === 0) {
+      alert("لا توجد كروت محلية لرفعها حالياً.");
+      return;
+    }
 
-  const cardsToSync = localCards.map(card => ({
-    ...card,
-    user_id: user.id,
-    updated_at: new Date().toISOString()
-  }));
+    const cardsToSync = localCards.map(card => ({
+      ...card,
+      user_id: user.id,
+      updated_at: new Date().toISOString()
+    }));
 
-  const { error } = await supabaseClient.from('cards').upsert(cardsToSync, { onConflict: 'id' });
-  if (error) {
-    console.error("خطأ أثناء المزامنة:", error);
-  } else {
-    console.log("تمت المزامنة بنجاح!");
+    const { error } = await supabaseClient.from('cards').upsert(cardsToSync, { onConflict: 'id' });
+    
+    if (error) {
+      console.error("خطأ أثناء المزامنة:", error);
+      alert("حدث خطأ أثناء المزامنة: " + error.message);
+    } else {
+      alert("تمت مزامنة البطاقات بنجاح مع السحابة!");
+    }
+  } catch (err) {
+    console.error("خطأ غير متوقع:", err);
+    alert("حدث خطأ غير متوقع أثناء المزامنة.");
   }
 }
