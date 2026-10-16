@@ -421,13 +421,41 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
       <input type="email" id="modal-email" placeholder="البريد الإلكتروني" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
       <input type="password" id="modal-pass" placeholder="كلمة المرور" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
       
-      <button onclick="signInUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value)" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
-      <button onclick="signUpUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value)" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
+     <button id="btn-signin" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
+<button id="btn-signup" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
+
+<hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
+
+<button id="btn-sync" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
+<button id="btn-signout" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.onload=()=>{loadDashboard();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}};
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+
+<!-- نافذة الحساب والمزامنة المنبثقة -->
+<div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+  <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #fff;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h3 style="margin: 0; font-size: 18px;">إدارة الحساب والمزامنة</h3>
+      <button onclick="toggleAuthModal()" style="background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer;">&times;</button>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <input type="email" id="modal-email" placeholder="البريد الإلكتروني" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
+      <input type="password" id="modal-pass" placeholder="كلمة المرور" style="padding: 10px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; width: 100%; box-sizing: border-box;" />
+      
+      <button id="btn-signin" style="background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">تسجيل دخول</button>
+      <button id="btn-signup" style="background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">إنشاء حساب جديد</button>
       
       <hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
       
-      <button onclick="syncLocalToCloud()" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
-      <button onclick="signOutUser()" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
+      <button id="btn-sync" style="background: #ca8a04; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 مزامنة البيانات الآن</button>
+      <button id="btn-signout" style="background: #dc2626; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px;">تسجيل خروج</button>
     </div>
   </div>
 </div>
@@ -437,4 +465,18 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
     const modal = document.getElementById('auth-modal');
     modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
   }
+
+  // ربط الأزرار برمجياً لمنع أي مشكلة في الاستجابة
+  document.getElementById('btn-signin').onclick = () => {
+    signInUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
+  };
+  document.getElementById('btn-signup').onclick = () => {
+    signUpUser(document.getElementById('modal-email').value, document.getElementById('modal-pass').value);
+  };
+  document.getElementById('btn-sync').onclick = () => {
+    syncLocalToCloud();
+  };
+  document.getElementById('btn-signout').onclick = () => {
+    signOutUser();
+  };
 </script>
